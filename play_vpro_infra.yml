@@ -1,0 +1,143 @@
+---
+- name: Setup Vprofile stack
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars_files:
+    - vpro_stack_vars/cloudvars
+  tasks:
+    - name: Create vprofile ec2 key
+      amazon.aws.ec2_key:
+        name: vpro-key
+        region: "{{region}}"
+      register: vpro_key_info
+
+#    - debug:
+#        msg: "{{vpro_key_info}}"
+#
+    - name: Save Private key login_key_vprofile.pem
+      copy:
+        content: "{{vpro_key_info.key.private_key}}"
+        dest: "./login_key_vprofile.pem"
+        mode: 0600
+      when: vpro_key_info.changed
+
+    - name: Create SG for vprofile Stack
+      amazon.aws.ec2_security_group:
+        name: vpro_stack_sg
+        description: Allow port 22 from everywhere and all port within sg
+        region: "{{region}}"
+        rules:
+         - proto: tcp
+           from_port: 22
+           to_port: 22
+           cidr_ip: "{{myip}}"
+
+         - proto: tcp
+           from_port: 80
+           to_port: 80
+           cidr_ip: 0.0.0.0/0
+
+         - proto: tcp
+           from_port: 8080
+           to_port: 8080
+           cidr_ip: "{{myip}}"
+
+         - proto: tcp
+           from_port: 3306
+           to_port: 3306
+           cidr_ip: "{{myip}}"
+
+         - proto: tcp
+           from_port: 3306
+           to_port: 3306
+           cidr_ip: "{{myip}}"
+
+      register: vproStackSG
+
+    - debug:
+        msg: "{{vproStackSG.group_id}}"
+
+    - name: Create SG for vprofile Stack
+      amazon.aws.ec2_security_group:
+        name: vpro_stack_sg
+        description: Allow port 22 from everywhere and all port within sg
+        region: "{{region}}"
+        rules:
+         - proto: tcp
+           from_port: 22
+           to_port: 22
+           cidr_ip: "{{myip}}"
+
+         - proto: tcp
+           from_port: 80
+           to_port: 80
+           cidr_ip: 0.0.0.0/0
+
+         - proto: tcp
+           from_port: 8080
+           to_port: 8080
+           cidr_ip: "{{myip}}"
+
+         - proto: tcp
+           from_port: 3306
+           to_port: 3306
+           cidr_ip: "{{myip}}"
+
+         - proto: tcp
+           from_port: 3306
+           to_port: 3306
+           cidr_ip: "{{myip}}"
+
+         - proto: all
+           group_id: "{{vproStackSG.group_id}}"
+
+
+
+      register: vproStackSG
+    - debug:
+        msg: "{{vproStackSG.group_id}}"
+    - name: Ensure instances (Nginx, Tomcat, RMQ, Memcache, DB) are created if not present
+      amazon.aws.ec2_instance_info:
+        region: "{{ region }}"
+        filters:
+          "tag:Name": "{{ item }}"
+          "tag:Project": "Vprofile"
+          "tag:Owner": "DevOps Team"
+      register: ec2_info
+      with_items:
+        - Nginx01
+        - Nginx02
+        - Tomcat01
+        - Tomcat02
+        - RMQ01
+        - Memcache01
+        - db01
+
+    - name: Creating All instances Nginx, Tomcat, RMQ, Memcache, DB
+      amazon.aws.ec2_instance:
+        key_name: vpro-key
+        region: "{{region}}"
+        instance_type: "{{inst_t}}"
+        image_id: "{{ami}}"
+        wait: yes
+        wait_timeout: 300
+        tags:
+          Name: "{{item}}"
+          Project: Vprofile
+          Owner: DevOps Team
+        count: 1
+        security_group: "{{vproStackSG.group_id}}"
+      when: ec2_info.results | map(attribute='instances') | flatten | selectattr('state.name', 'in', ['running', 'pending']) | selectattr('tags.Name', 'equalto', item) | list | length == 0
+      with_items:
+        - Nginx01
+        - Nginx02
+        - Tomcat01
+        - Tomcat02
+        - RMQ01
+        - Memcache01
+        - db01
+      register: vpro_ec2_info
+
+    - debug:
+        msg: "{{vpro_ec2_info}}"
