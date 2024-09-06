@@ -12,9 +12,6 @@
         region: "{{region}}"
       register: vpro_key_info
 
-#    - debug:
-#        msg: "{{vpro_key_info}}"
-#
     - name: Save Private key login_key_vprofile.pem
       copy:
         content: "{{vpro_key_info.key.private_key}}"
@@ -84,19 +81,14 @@
            to_port: 3306
            cidr_ip: "{{myip}}"
 
-         - proto: tcp
-           from_port: 3306
-           to_port: 3306
-           cidr_ip: "{{myip}}"
-
          - proto: all
            group_id: "{{vproStackSG.group_id}}"
 
-
-
       register: vproStackSG
+
     - debug:
         msg: "{{vproStackSG.group_id}}"
+
     - name: Ensure instances (Nginx, Tomcat, RMQ, Memcache, DB) are created if not present
       amazon.aws.ec2_instance_info:
         region: "{{ region }}"
@@ -139,6 +131,8 @@
         - db01
       register: vpro_ec2_info
 
-    - debug:
-        msg: "{{vpro_ec2_info}}"
-        
+    - name: Print public IPs of all instances
+      debug:
+        msg: "{{ item.instances[0].public_ip_address }}"
+      with_items: "{{ vpro_ec2_info.results }}"
+      when: item.instances[0].public_ip_address is defined
