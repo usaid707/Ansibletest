@@ -45,11 +45,6 @@
            to_port: 3306
            cidr_ip: "{{myip}}"
 
-         - proto: tcp
-           from_port: 3306
-           to_port: 3306
-           cidr_ip: "{{myip}}"
-
       register: vproStackSG
 
     - debug:
@@ -131,8 +126,8 @@
         - db01
       register: vpro_ec2_info
 
-    - name: Print public IPs of all instances
+    - name: Print public IPs along with Name tags of all instances
       debug:
-        msg: "{{ item.instances[0].public_ip_address }}"
+        msg: "Instance Name: {{ item.instances[0].tags.Name }}, Public IP: {{ item.instances[0].public_ip_address }}"
       with_items: "{{ vpro_ec2_info.results }}"
       when: item.instances[0].public_ip_address is defined
